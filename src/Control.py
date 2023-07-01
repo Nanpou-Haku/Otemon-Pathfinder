@@ -1,3 +1,4 @@
+
 import time
 import copy
 import atexit
@@ -54,9 +55,8 @@ end = 0
 total = 0
 clock = 0
 direction = 0
-counter = 0
-pole = None
-startFlag = False
+
+startFlag = False;
 
 #Hiroshi
 def Init():
@@ -161,8 +161,7 @@ def Read_distance_side():
 def DistanceMove(steering, nowPosition, left):
     cm_front = Read_distance_front()
     cm_side = Read_distance_side()
-    global pole
-    
+
     if cm_front < 40:
         motor.stop()
         if cm_side >=100:
@@ -174,7 +173,6 @@ def DistanceMove(steering, nowPosition, left):
             steering.run_to_position(0)
             motor.run_for_seconds(2, -100)
             motor.stop()
-            Situation()
             
             nowPosition = MotorMove(steering, nowPosition, 0)
             
@@ -187,14 +185,11 @@ def DistanceMove(steering, nowPosition, left):
             steering.run_to_position(0)
             motor.run_for_seconds(2, -100)
             motor.stop()
-            Situation()
             
             nowPosition = MotorMove(steering, nowPosition, 0)
             
     else:
         motor.start(30)
-
-    print(pole)
     
     return nowPosition
 
@@ -215,101 +210,69 @@ def Back(nowPosition, color):
     
     time.sleep(total*0.9)
     steering.run_to_position(0)
-    counter = counter + 1
-    time.sleep(2)
     
-    if 4500 <= surf <= 7000 and pole == 3 and counter == 1:
-        counter = counter + 1
-        print("two poles")
-        
-    elif surf <= 3500 and pole == 1:
-        print("one pole, expected")
-        
-    elif surf <= 3500 and pole == 2:
-        counter = counter - 1
-        print("one pole")
+    time.sleep(2)
     
     total = 0
     clock = 0
-    
-#Fujimura
-def Situation():
-    surf = max([green.area, red.area])
-    global pole
-
-    if 50 <= surf <=70 or 90 <= surf <= 130:
-        pole = 1
-        
-    elif 200 <= surf <= 570:
-        pole = 2
 
 #Fujimura
 def Avoid(nowPosition):
-    if pole == 1 and counter == 1:
-        print("1 : 1")
-    
-    elif pole == 2 and counter == 0:
-        print("2 : 1")
-        
-    elif pole == 2 and coutner == 2:
-        print("2 : 2")
-    
-    else:
-        #Green
-        if (len(green.contour) != 0):
-            green.maxContour = max(green.contour, key = lambda x: cv2.contourArea(x))
-            green.area = cv2.contourArea(green.maxContour)
-            green.moments = cv2.moments(green.maxContour)
-            #Green and red
-            if (len(red.contour) != 0):
-                red.maxContour = max(red.contour, key = lambda x: cv2.contourArea(x))
-                red.area = cv2.contourArea(red.maxContour)
-                red.moments = cv2.moments(red.maxContour)
-                #Green near
-                if red.area < green.area and 1300 < green.area < 9000:
-                    if green.moments["m00"] != 0:
-                        goPosition = MotorPosition(green, left, left, 0)
-                    nowPosition = MotorMove(steering, nowPosition, goPosition)
-            
-                #Red near
-                elif green.area < red.area and 1300 < red.area < 9000:
-                    if red.moments["m00"] != 0:
-                        goPosition = MotorPosition(red, 0, right, right)
-                        nowPosition = MotorMove(steering, nowPosition, goPosition)
- 
-                else:
-                    nowPosition = DistanceMove(steering, nowPosition, left)
-        
-            #Green only
-            elif 1300 < green.area < 9000:
+    #green
+    if (len(green.contour) != 0):
+        green.maxContour = max(green.contour, key = lambda x: cv2.contourArea(x))
+        green.area = cv2.contourArea(green.maxContour)
+        green.moments = cv2.moments(green.maxContour)
+        #green and red
+        if (len(red.contour) != 0):
+            red.maxContour = max(red.contour, key = lambda x: cv2.contourArea(x))
+            red.area = cv2.contourArea(red.maxContour)
+            red.moments = cv2.moments(red.maxContour)
+            #near green
+            if red.area < green.area and 1300 < green.area < 9000:
                 if green.moments["m00"] != 0:
                     goPosition = MotorPosition(green, left, left, 0)
                     nowPosition = MotorMove(steering, nowPosition, goPosition)
             
-            else:
-                nowPosition = DistanceMove(steering, nowPosition, left)
-    
-        #Red only
-        elif (len(red.contour) != 0):
-            red.maxContour = max(red.contour, key = lambda x: cv2.contourArea(x))
-            red.area = cv2.contourArea(red.maxContour)
-            red.moments = cv2.moments(red.maxContour)
-            if 1300 < red.area < 9000:
+            #near red
+            elif green.area < red.area and 1300 < red.area < 9000:
                 if red.moments["m00"] != 0:
                     goPosition = MotorPosition(red, 0, right, right)
                     nowPosition = MotorMove(steering, nowPosition, goPosition)
-        
+ 
             else:
-                nowPosition =  DistanceMove(steering, nowPosition, left)
-    
+                nowPosition = DistanceMove(steering, nowPosition, left)
+        
+        #green only
+        elif 1300 < green.area < 9000:
+            if green.moments["m00"] != 0:
+                goPosition = MotorPosition(green, left, left, 0)
+                nowPosition = MotorMove(steering, nowPosition, goPosition)
+            
         else:
             nowPosition = DistanceMove(steering, nowPosition, left)
+    
+    #red only
+    elif (len(red.contour) != 0):
+        red.maxContour = max(red.contour, key = lambda x: cv2.contourArea(x))
+        red.area = cv2.contourArea(red.maxContour)
+        red.moments = cv2.moments(red.maxContour)
+        if 1300 < red.area < 9000:
+            if red.moments["m00"] != 0:
+                goPosition = MotorPosition(red, 0, right, right)
+                nowPosition = MotorMove(steering, nowPosition, goPosition)
+        
+        else:
+            nowPosition =  DistanceMove(steering, nowPosition, left)
+    
+    else:
+        nowPosition = DistanceMove(steering, nowPosition, left)
         
     return nowPosition
-
+    
 #Fujimura
 def main():
-    nowPosition = MotorMove(steering, -1, 0)
+    nowPosition = motorMove(steering, -1, 0)
     stream = picamera.array.PiRGBArray(camera)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
     motor.start(30)
@@ -335,7 +298,7 @@ def main():
         green.res = cv2.bitwise_and(stream.array, stream.array, mask=green.dstt)
         red.res = cv2.bitwise_and(stream.array, stream.array, mask=red.dstt)
         
-        #outline
+        #contour detection
         green.contour, green.hierarchy = cv2.findContours(green.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         red.contour, red.hierarchy = cv2.findContours(red.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
