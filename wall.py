@@ -1,24 +1,14 @@
+import sys
+import time
+import math
+
 import picamera
 import picamera.array
+import RPi.GPIO as GPIO
+
 import cv2
 import numpy as np
-import math
 from buildhat import Motor
-import time
-
-th = Motor('A')
-st = Motor('B')
-st.run_to_position(0)
-#th.start(20)
-
-isWallAvoided = False
-avoidNum = 0
-
-clockwise_detect = True
-clockwise = True
-
-leftmost_blue = [0, 0]
-leftmost_orange = [0, 0]
 
 def map_value(value):
     if value >= 17000:
@@ -30,188 +20,380 @@ def map_value(value):
         intercept = 70 - slope * 17000
     return int(slope * value + intercept)
 
-with picamera.PiCamera() as camera:
-    with picamera.array.PiRGBArray(camera) as stream:
-        camera.resolution = (320, 240)
-        camera.rotation = 180
-        camera.framerate = 10 
+class Camera:
+    # Private
+    __COLOR = "bgr"
+    __USE_VIDEO_PORT = True
+    __name = None
+    __camera = None
+    __stream = None
+    
+    # Public
+    width = None
+    height = None
+    streamDatas = None
+    kernel = None
+    hsv = None
+
+    # Function
+    def __init__(self, name, width, height, frame, rotation = 180):
+        self.__name = name
+        self.width = width
+        self.height = height
+        self.__camera = picamera.PiCamera()
+        self.__camera.resolution = (width, height)
+        self.__camera.framerate = frame
+        self.__camera.rotation = rotation
+
+    def Update(self):
+        self.__stream = picamera.array.PiRGBArray(self.__camera)
+        self.kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+        self.__camera.capture(self.__stream, self.__COLOR, self.__USE_VIDEO_PORT)
+        self.streamDatas = self.__stream.array
+        self.hsv = cv2.cvtColor(self.__stream.array, cv2.COLOR_BGR2HSV)
+    
+    def Render(self):
+        cv2.imshow(self.__name, self.__stream.array)
+        cv2.waitKey(1)
+        self.__stream.seek(0)
+        self.__stream.truncate()
+
+class Color:
+    # Private
+    __DIVISION_LINE_COLOR = (255, 215, 0)
+    __DIVISION_LINE_THICKNESS = 1
+    __OPENING_ITERATIONS = 1
+    __colorName  = None
+    __lower      = None
+    __upper      = None
+    __lowerOther = None
+    __upperOther = None
+    __outlineMethod = None
+
+    # Public
+    mask       = None
+    dst        = None
+    dstt       = None
+    res        = None
+    contour    = None
+    hierarchy  = None
+    maxContour = None
+    area       = None
+    moments    = None
+    originX = None
+    originY = None
+    divisionDifferenceX = None
+    divisionLeftX       = None
+    divisionRightX      = None
+    windowWidth  = None
+    windowHeight = None
+
+    # Function
+    def __init__(self, colorName, lower, upper, lowerOther, upperOther, outlineMethod, divisionDifferenceX = None, windowWidth = None, windowHeight = None):
+        self.__colorName = colorName
+        self.__lower = np.array(lower)
+        self.__upper = np.array(upper)
+        if lowerOther is not None and upperOther is not None:
+            self.__lowerOther = np.array(lowerOther)
+            self.__upperOther = np.array(upperOther)
+        self.__outlineMethod = outlineMethod
+        self.divisionLeftX = divisionDifferenceX
+        if divisionDifferenceX is not None and windowWidth is not None and windowHeight is not None:
+            self.divisionRightX = windowWidth - divisionDifferenceX
+            self.windowWidth = windowWidth
+            self.windowHeight = windowHeight
+
+    def Update(self, camera):
+        # Masking
+        if self.__colorName == "wall":
+            camera.hsv = camera.hsv[80:240, 0:320]
+            
+        elif self.__colorName == "black":
+            height = (camera.height, camera.height, camera.height)
+            cv2.rectangle(camera.hsv, (0, 0),   (camera.width, 100),           height, -1)
+            cv2.rectangle(camera.hsv, (0, 0),   (20, camera.height),           height, -1)
+            cv2.rectangle(camera.hsv, (300, 0), (camera.width, camera.height), height, -1)
+        elif self.__colorName == "blue":
+            cv2.rectangle(camera.hsv, (0, 0), (camera.width, 120), (100, 100, 100), -1)
+
+        self.mask = cv2.inRange(camera.hsv, self.__lower, self.__upper)
+        if self.__lowerOther is not None and self.__upperOther is not None:
+            maskOther = cv2.inRange(camera.hsv, self.__lowerOther, self.__upperOther)
+            self.mask += maskOther
         
-        while True:
-            #setup camera
-            camera.capture(stream, 'bgr', use_video_port=True)
-            frame =  stream.array
-            
-            #color
-            wall_lower = np.array([0, 20, 0])
-            wall_upper = np.array([90, 255, 85])
-            blue_lower = np.array([80, 25, 60])
-            blue_upper = np.array([180, 255, 180])
-            orange_lower = np.array([0, 95, 130])
-            orange_upper = np.array([180, 255, 215])
-            
-            #roi
-            base_roi = frame[80:240, 0:320]
-            
-            #gomihsv
-            hsv = cv2.cvtColor(base_roi, cv2.COLOR_BGR2HSV)
-            
-            l_roi = hsv[0:240, 0:160]
-            r_roi = hsv[0:240, 160:320]
-            
-            #kernel
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-            
-            #mask
-            wall_l_mask = cv2.inRange(l_roi, wall_lower, wall_upper)
-            wall_r_mask = cv2.inRange(r_roi, wall_lower, wall_upper)
-            blue_mask = cv2.inRange(hsv, blue_lower, blue_upper)
-            orange_mask = cv2.inRange(hsv, orange_lower, orange_upper)
+        # Opening
+        self.dst = cv2.erode(self.mask, camera.kernel, self.__OPENING_ITERATIONS)
+        self.dstt = cv2.dilate(self.dst, camera.kernel, self.__OPENING_ITERATIONS)
 
-            
-            #opening
-            wall_l_dst = cv2.erode(wall_l_mask, kernel, iterations=1)
-            wall_r_dst = cv2.erode(wall_r_mask, kernel, iterations=1)
-            blue_dst = cv2.erode(blue_mask, kernel, iterations=1)
-            orange_dst = cv2.erode(orange_mask, kernel, iterations=1)
-            wall_l_dstt = cv2.dilate(wall_l_dst, kernel, iterations=1)
-            wall_r_dstt = cv2.dilate(wall_r_dst, kernel, iterations=1)
-            blue_dstt = cv2.dilate(blue_dst, kernel, iterations=1)
-            orange_dstt = cv2.dilate(orange_dst, kernel,iterations=1)
-            
-            #synthesis
-            wall_l_res = cv2.bitwise_and(base_roi[0:240, 0:160], base_roi[0:240, 0:160], mask=wall_l_dstt)
-            wall_r_res = cv2.bitwise_and(base_roi[0:240, 160:320], base_roi[0:240, 160:320], mask=wall_r_dstt)
-            blue_res = cv2.bitwise_and(base_roi, base_roi, mask=blue_dstt)
-            orange_res = cv2.bitwise_and(base_roi, base_roi, mask=orange_dstt)
-            
-            #contour hierarchy
-            wall_l_contour, wall_l_hierarchy = cv2.findContours(wall_l_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            wall_r_contour, wall_r_hierarchy = cv2.findContours(wall_r_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            blue_contour, blue_hierarchy = cv2.findContours(blue_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            orange_contour, orange_hierarchy = cv2.findContours(orange_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)            
-            
-            if len(wall_l_contour) > 0:
-                wall_l_maxContour = max(wall_l_contour, key=lambda x: cv2.contourArea(x))
-                wall_l_area = cv2.contourArea(wall_l_maxContour)
-                cv2.drawContours(wall_l_res, [wall_l_maxContour], -1, (255, 0, 0), 2)
-            
-            else:
-                wall_l_area = 0
-                wall_l_maxContour = 0
-            
-            if len(wall_r_contour) > 0:
-                wall_r_maxContour = max(wall_r_contour, key=lambda x: cv2.contourArea(x))
-                wall_r_area = cv2.contourArea(wall_r_maxContour)
-                cv2.drawContours(wall_r_res, [wall_r_maxContour], -1, (255, 0, 0), 2)
-            
-            else:
-                wall_r_area = 0
-                wall_r_maxContour = 0
-            
-            if len(blue_contour) > 0:
-                blue_maxContour = max(blue_contour, key=lambda x: cv2.contourArea(x))
-                blue_area = cv2.contourArea(blue_maxContour)
-                blue_m = cv2.moments(blue_maxContour)
-                if blue_m["m00"] != 0:
-                    x_blue, y_blue = int(blue_m["m10"] / blue_m["m00"]), int(blue_m["m01"] / blue_m["m00"])
-                    leftmost_blue = tuple(blue_maxContour[blue_maxContour[:,:,0].argmin()][0])
-                    cv2.circle(blue_res, (leftmost_blue[0],leftmost_blue[1]), 4, (255, 255, 120), -1)
-            
-            else:
-                blue_maxContour = 0
-                blue_area = 0
-                leftmost_blue = [0, 0]
-            
-            if len(orange_contour) > 0:
-                orange_maxContour = max(orange_contour, key=lambda x: cv2.contourArea(x))
-                orange_area = cv2.contourArea(orange_maxContour)
-                orange_m = cv2.moments(orange_maxContour)
-                if orange_m["m00"] != 0:
-                    x_orange, y_orange = int(orange_m["m10"] / orange_m["m00"]), int(orange_m["m01"] / orange_m["m00"])
-                    leftmost_orange = tuple(orange_maxContour[orange_maxContour[:,:,0].argmin()][0])
-                    cv2.circle(orange_res, (leftmost_orange[0], leftmost_orange[1]), 4, (255, 255, 120), -1)
-            
-            else:
-                orange_area = 0
-                orange_maxContour = 0
-                leftmost_orange = [0, 0]
-            
-            if clockwise_detect == True:
-                if leftmost_blue[1] > leftmost_orange[1]:
-                    clockwise = True
-                
-                elif leftmost_orange[1] > leftmost_blue[1]:
-                    clockwise = False
-                        
-                clockwise_detect = False
-            
-            #wall_l_area ==0 and wall_r_area==0
-            if 10000 <= wall_l_area and 10000 <= wall_r_area:
-                if isWallAvoided == False:
-                    avoidNum += 1
-                    print(avoidNum)
-                    isWallAvoided = True
-                st.run_to_position(70)
-                print("ahead")
-                
-            elif wall_l_area < wall_r_area:
-                isWallAvoided = False
-                if wall_l_area * 2 > wall_r_area:
-                    st.run_to_position(0)
-                    print("middle")
-                    
-                elif wall_l_area * 2 < wall_r_area:
-                    angle = -map_value(wall_r_area)
-                    st.run_to_position(angle)
-                    print("go left")
-                    print(angle)
-            
-            elif wall_l_area > wall_r_area:
-                isWallAvoided = False
-                if wall_l_area < wall_r_area * 2:
-                    st.run_to_position(0)
-                    print("middle")
-                
-                elif wall_l_area > wall_r_area * 2:
-                    angle = map_value(wall_l_area)
-                    st.run_to_position(angle)
-                    print("go right")
-                    print(angle)
-            
-            elif wall_l_area ==0 and wall_r_area==0:
-                isWallAvoided = False
-                st.run_to_position(0)
-                print("middle")
-                
-               
-            
-            text_p = (100, 220)
-            textp = (100, 440)
-            font_scale = 3.0
-            fontFace = cv2.FONT_HERSHEY_SIMPLEX
-            color = (255, 255, 255)
-            thickness = 2
-            lineType = cv2.LINE_4
-            
-            #output
-            img = np.zeros((640, 640, 3),dtype=np.uint8)
-            cv2.putText(img,  "L:" + str(wall_l_area), text_p, fontFace, font_scale, color, thickness, lineType)
-            cv2.putText(img,  "R:" + str(wall_r_area), textp, fontFace, font_scale, color, thickness, lineType)
-            cv2.imshow("res1", wall_l_res)
-            cv2.imshow("res2", wall_r_res)
-            cv2.imshow("blue", blue_res)
-            cv2.imshow("orange", orange_res)
-            cv2.imshow("frame", base_roi)
-            cv2.imshow("text", img)
-            print(clockwise)
-            stream.seek(0)
-            stream.truncate()
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+        # Synthesis
+        self.res = cv2.bitwise_and(camera.streamDatas, camera.streamDatas, mask=self.dstt)
 
-            stream.seek(0)
-            stream.truncate()
+        # Outline
+        self.contour, self.hierarchy = cv2.findContours(self.mask, cv2.RETR_EXTERNAL, self.__outlineMethod)
 
-st.run_to_position(0)
-th.stop()
-cv2.destroyAllWindows()
+        # Moments and area
+        if (len(self.contour) != 0):
+            self.maxContour = max(self.contour, key = lambda x: cv2.contourArea(x))
+            self.area = cv2.contourArea(self.maxContour)
+            self.moments = cv2.moments(self.maxContour)
+            if self.moments["m00"] != 0 and self.moments["m01"] != 0 and self.moments["m10"] != 0:
+                self.originX = int(self.moments["m10"] / self.moments["m00"])
+                self.originY = int(self.moments["m01"] / self.moments["m00"])
+        else:
+            self.area = None
+            self.originX = None
+            self.originY = None
+
+    def Render(self):
+        # DivisionLine
+        if self.divisionLeftX is not None or self.divisionRightX is not None:
+            windowTop = 0
+            cv2.line(self.res, (self.divisionLeftX,  windowTop), (self.divisionLeftX,  self.windowHeight), self.__DIVISION_LINE_COLOR, self.__DIVISION_LINE_THICKNESS)
+            cv2.line(self.res, (self.divisionRightX, windowTop), (self.divisionRightX, self.windowHeight), self.__DIVISION_LINE_COLOR, self.__DIVISION_LINE_THICKNESS)
+
+        # Origin
+        if self.originX is not None or self.originY is not None:
+            cv2.circle(self.dstt, (self.originX,self.originY), 2, 100, 2, 4)
+            cv2.circle(self.res, (self.originX, self.originY), 2, 100, 2, 4)
+        
+        # Render
+        if self.res is not None:
+            cv2.imshow(self.__colorName, self.res)
+
+    def GetPositionFromColor(self, left, midle, right):
+        windowLeft = 0
+        # Left
+        if windowLeft <= self.originX <= self.divisionLeftX:
+            return left
+        # Middle
+        elif self.divisionLeftX <= self.originX <= self.divisionRightX:
+            return midle
+        # Right              
+        elif self.divisionRightX <= self.originX <= self.windowWidth:
+            return right
+        
+        print("GetPositionFromColor retutn None")
+        print("divisionLeftX", self.divisionLeftX)
+        print("divisionRightX", self.divisionRightX)
+        print("windowWidth", self.windowWidth)
+        print("originX", self.originX)
+
+    def CanSeeColor(self):
+        if self.area is not None and 500 <= self.area:
+            return True
+
+    def GetSlope(self):
+        cv2.drawContours(self.res, self.maxContour, -1, (255, 0, 0), 2)
+
+        lx, ly = (float("inf"), float("inf"))
+        rx, ry = (float("-inf"), float("-inf"))
+        
+        if self.maxContour is not None:
+            for contour in self.maxContour:
+                for point in contour:
+                    x = point.item(0)
+                    y = point.item(1)
+
+                    if x < lx or (x == lx and y > ly):
+                        lx, ly = (x, y)
+
+                    if x > rx or (x == rx and y > ry):
+                        rx, ry = (x, y)
+
+        if lx != float("inf") and ly != float("inf"):
+            cv2.circle(self.res, (lx, ly), 5, (0, 0, 255), -1)
+
+        if rx != float("-inf") and ry != float("-inf"):
+            cv2.circle(self.res, (rx, ry), 5, (0, 255, 0), -1)
+
+        tanh = abs(ly - ry)
+        degree = math.degrees(math.atan2(tanh, 280))
+        slope = abs((30 / 11 * degree) - 1)
+
+        return slope
+
+class Steering:
+    # Private
+    __nowPosition = None
+    __turnNum = 0
+    __SLOPE_ADMISSIBLE_VALUE = 4
+    
+    # Public
+    steering = None
+    startTime = 0
+    moveTime = 0
+    blueFlag = None
+    poleFlag = None
+    avoidedColor = None
+    isTurnLeft = None
+
+    # Function
+    def __init__(self, port):
+        self.steering = Motor(port)
+        self.__nowPosition = self.steering.get_aposition()
+
+    def ChangePosition(self, goPosition):
+        if self.__nowPosition != goPosition:
+            self.steering.run_to_position(goPosition)
+            self.__nowPosition = goPosition
+
+            # Count of moving time
+            if self.__nowPosition != POS_MIDDLE:
+                self.startTime = time.perf_counter()
+            else:
+                endTime = time.perf_counter()
+                self.moveTime = endTime - self.startTime
+
+    def MoveFromWallSlope(self, motor, wallSlope):
+        if self.__SLOPE_ADMISSIBLE_VALUE <= wallSlope:
+            self.ChangePosition(40)
+            motor.start(20)
+        elif wallSlope <= 0:
+            self.ChangePosition(-40)
+            motor.start(20)
+        elif 0 < wallSlope < self.__SLOPE_ADMISSIBLE_VALUE:
+            self.ChangePosition(POS_MIDDLE)
+            motor.stop()
+
+            goPosition = POS_MIDDLE
+            if self.isTurnLeft == None:
+                distanceSide = distanceSensorSide.GetDistance()
+                # Back turn left
+                if distanceSide >= 100:
+                    goPosition = POS_LEFT
+                    self.isTurnLeft = True
+                # Back turn right
+                else:
+                    goPosition = POS_RIGHT
+                    self.isTurnLeft = False
+            else:
+                goPosition = POS_LEFT if self.isTurnLeft else POS_RIGHT
+
+            motor.run_for_seconds(1.3, 70)
+            time.sleep(0.1)
+            motor.run_for_seconds(0.5, -70)
+            self.ChangePosition(goPosition)
+            motor.run_for_seconds(2.2, -70)
+            self.ChangePosition(POS_MIDDLE)
+            motor.run_for_seconds(1.2, -100)
+            time.sleep(0.1)
+            self.poleFlag = False
+            self.blueFlag = False
+            self.__turnNum += 1
+            self.ChangePosition(POS_MIDDLE)
+            self.moveTime = 0
+
+    def MoveFromDistance(self, motor, wallSlope):
+        distanceFront = distanceSensorFront.GetDistance()
+        if black.area == None:
+            black.area = 0
+                
+        # First only
+        print("pole", self.poleFlag, "blue", self.blueFlag)
+        if self.__turnNum == 0:
+            if distanceFront < 40 and black.area > 5000:
+                motor.stop()
+                self.MoveFromWallSlope(motor, wallSlope)
+
+            else:
+                motor.start(30)
+                
+        elif distanceFront < 10:
+            self.MoveFromWallSlope(motor, 1)
+
+        elif self.poleFlag:
+            if distanceFront < 40 and black.area > 5000:
+                motor.stop()
+                self.MoveFromWallSlope(motor, wallSlope)
+
+            else:
+                motor.start(30)
+                            
+        else:
+            motor.start(30)
+
+    def Avoid(self):
+        if steering.poleFlag and steering.blueFlag:
+            return
+
+        # Has green
+        if green.area is not None:
+            # Has green and has red
+            if red.area is not None:
+                # Green priority
+                if red.area < green.area and 1200 < green.area < 9000:
+                    goPosition = green.GetPositionFromColor(POS_LEFT, POS_LEFT, POS_MIDDLE)
+                    steering.ChangePosition(goPosition)
+                    self.avoidedColor = "green"
+
+                # Avoid red
+                elif green.area < red.area and 1200 < red.area < 9000:
+                    goPosition = red.GetPositionFromColor(POS_MIDDLE, POS_RIGHT, POS_RIGHT)
+                    steering.ChangePosition(goPosition) 
+                    self.avoidedColor = "red"
+            # Avoid green
+            elif 1200 < green.area < 9000:
+                goPosition = green.GetPositionFromColor(POS_LEFT, POS_LEFT, POS_MIDDLE)
+                steering.ChangePosition(goPosition) 
+                self.avoidedColor = "green"
+
+        # Avoid red
+        elif red.area is not None:
+            if 1200 < red.area < 9000:
+                goPosition = red.GetPositionFromColor(POS_MIDDLE, POS_RIGHT, POS_RIGHT)
+                steering.ChangePosition(goPosition)
+                self.avoidedColor = "red"
+
+    def Back(self, goPosition):
+        self.ChangePosition(POS_MIDDLE)
+        time.sleep(2)
+        self.ChangePosition(goPosition)
+        time.sleep(self.moveTime * 0.5)
+        self.ChangePosition(POS_MIDDLE)
+        time.sleep(1.8)
+        self.poleFlag = True
+        self.moveTime = 0
+        self.avoidedColor = None
+
+MODE_DEBUG = True
+
+# Camera
+camera = Camera("PiCamera", 320, 240, 10)
+
+# Color
+wall = Color("wall", [0, 20, 0], [90, 255, 85], None, None, cv2.CHAIN_APPROX_SIMPLE, 160, camera.width, camera.height)
+
+# Motor
+motor = Motor('A')
+steering = Steering('B')
+POS_LEFT = -70
+POS_MIDDLE = 0
+POS_RIGHT = 70
+
+def Initialize():
+    motor.start(30)
+    steering.ChangePosition(POS_MIDDLE):
+    print("Initialize")
+
+def Main():
+    camera.Update()
+    wall.Update()
+
+    if MODE_DEBUG:
+        camera.Render()
+        wall.Render()
+        print("Main")
+
+def Finalize():
+    print("Finalize")
+    motor.stop()
+    steering.ChangePosition(POS_MIDDLE):
+    GPIO.cleanup()
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    Initialize()
+    try:
+        Main()
+    finally:
+        Finalize()

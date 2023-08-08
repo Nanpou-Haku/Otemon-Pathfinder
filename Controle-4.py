@@ -79,14 +79,14 @@ class Color:
     windowHeight = None
 
     # Function
-    def __init__(self, colorName, lower, upper, lowerOther, upperOther, __outlineMethod, divisionDifferenceX = None, windowWidth = None, windowHeight = None):
+    def __init__(self, colorName, lower, upper, lowerOther, upperOther, outlineMethod, divisionDifferenceX = None, windowWidth = None, windowHeight = None):
         self.__colorName = colorName
         self.__lower = np.array(lower)
         self.__upper = np.array(upper)
         if lowerOther is not None and upperOther is not None:
             self.__lowerOther = np.array(lowerOther)
             self.__upperOther = np.array(upperOther)
-        self.__outlineMethod = __outlineMethod
+        self.__outlineMethod = outlineMethod
         self.divisionLeftX = divisionDifferenceX
         if divisionDifferenceX is not None and windowWidth is not None and windowHeight is not None:
             self.divisionRightX = windowWidth - divisionDifferenceX
