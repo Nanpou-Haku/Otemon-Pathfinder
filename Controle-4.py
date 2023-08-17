@@ -8,6 +8,7 @@ import RPi.GPIO as GPIO
 
 import cv2
 import numpy as np
+import multiprocessing as mp
 from buildhat import Motor
 
 class Camera:
@@ -79,14 +80,14 @@ class Color:
     windowHeight = None
 
     # Function
-    def __init__(self, colorName, lower, upper, lowerOther, upperOther, outlineMethod, divisionDifferenceX = None, windowWidth = None, windowHeight = None):
+    def __init__(self, colorName, lower, upper, lowerOther, upperOther, __outlineMethod, divisionDifferenceX = None, windowWidth = None, windowHeight = None):
         self.__colorName = colorName
         self.__lower = np.array(lower)
         self.__upper = np.array(upper)
         if lowerOther is not None and upperOther is not None:
             self.__lowerOther = np.array(lowerOther)
             self.__upperOther = np.array(upperOther)
-        self.__outlineMethod = outlineMethod
+        self.__outlineMethod = __outlineMethod
         self.divisionLeftX = divisionDifferenceX
         if divisionDifferenceX is not None and windowWidth is not None and windowHeight is not None:
             self.divisionRightX = windowWidth - divisionDifferenceX
@@ -195,7 +196,10 @@ class Color:
 
         tanh = abs(ly - ry)
         degree = math.degrees(math.atan2(tanh, 280))
-        slope = abs((30 / 11 * degree) - 1)
+        slope = (30/11 * degree) - 1
+        
+        if ry <= ly:
+            slope = -1 * slope
 
         return slope
 
@@ -258,21 +262,27 @@ class steering:
             self.__nowPosition = goPosition
 
             # Count of moving time
-            if self.__nowPosition != POS_MIDDLE:
-                self.startTime = time.perf_counter()
-            else:
+            if self.__nowPosition == POS_MIDDLE and self.startTime != 0:
                 endTime = time.perf_counter()
                 self.moveTime = endTime - self.startTime
-
+                print("end")
+            else:
+                self.startTime = time.perf_counter()
+                print("start")
+                
     def MoveFromWallSlope(self, motor, wallSlope):
+        print("AAAAAAAA")
         if self.__SLOPE_ADMISSIBLE_VALUE <= wallSlope:
-            self.ChangePosition(40)
+            #self.ChangePosition(45)
+            self.steering.run_to_position(45)
             motor.start(20)
         elif wallSlope <= 0:
-            self.ChangePosition(-40)
+            #self.ChangePosition(-45)
+            self.steering.run_to_position(-45)
             motor.start(20)
         elif 0 < wallSlope < self.__SLOPE_ADMISSIBLE_VALUE:
-            self.ChangePosition(POS_MIDDLE)
+            #self.ChangePosition(POS_MIDDLE)
+            self.steering.run_to_position(POS_MIDDLE)
             motor.stop()
 
             goPosition = POS_MIDDLE
@@ -289,11 +299,11 @@ class steering:
             else:
                 goPosition = POS_LEFT if self.isTurnLeft else POS_RIGHT
 
-            motor.run_for_seconds(1.3, 70)
+            motor.run_for_seconds(1, 70)
             time.sleep(0.1)
             motor.run_for_seconds(0.5, -70)
             self.ChangePosition(goPosition)
-            motor.run_for_seconds(2.2, -70)
+            motor.run_for_seconds(2.65, -70)
             self.ChangePosition(POS_MIDDLE)
             motor.run_for_seconds(1.2, -100)
             time.sleep(0.1)
@@ -303,19 +313,21 @@ class steering:
             self.ChangePosition(POS_MIDDLE)
             self.moveTime = 0
 
-    def MoveFromDistance(self, motor, wallSlope):
+    def MoveFromDistance(self, motor, wallSlope):   
         distanceFront = distanceSensorFront.GetDistance()
         if black.area == None:
             black.area = 0
-                
+            
         # First only
-        print("pole", self.poleFlag, "blue", self.blueFlag)
         if self.__turnNum == 0:
             if distanceFront < 40 and black.area > 5000:
                 motor.stop()
+                print("wall")
                 self.MoveFromWallSlope(motor, wallSlope)
 
             else:
+                print("distanceFront =", distanceFront)
+                print("black.area =", black.area)
                 motor.start(30)
                 
         elif distanceFront < 10:
@@ -332,7 +344,7 @@ class steering:
         else:
             motor.start(30)
 
-    def Avoid(self):
+    def Avoid(self):        
         if steering.poleFlag and steering.blueFlag:
             return
 
@@ -363,7 +375,10 @@ class steering:
                 goPosition = red.GetPositionFromColor(POS_MIDDLE, POS_RIGHT, POS_RIGHT)
                 steering.ChangePosition(goPosition)
                 self.avoidedColor = "red"
-
+        #"""
+        else:
+            steering.ChangePosition(POS_MIDDLE)
+        #"""
     def Back(self, goPosition):
         self.ChangePosition(POS_MIDDLE)
         time.sleep(2)
@@ -382,7 +397,7 @@ MODE_DEBUG = True
 camera = Camera("PiCamera", 320, 240, 10)
 
 # Color
-divisionDifferenceX = 40
+divisionDifferenceX = 60
 red   = Color("red",   [ 160, 60, 50 ], [ 179, 255, 255 ], [ 0, 255, 50 ], [ 30, 255, 255 ], cv2.CHAIN_APPROX_SIMPLE, divisionDifferenceX, camera.width, camera.height)
 green = Color("green", [ 40, 60, 40 ],  [ 80, 255, 255 ],  None,           None,             cv2.CHAIN_APPROX_SIMPLE, divisionDifferenceX, camera.width, camera.height)
 blue  = Color("blue",  [ 104, 85, 0 ],  [ 170, 255, 163 ], None,           None,             cv2.CHAIN_APPROX_SIMPLE, divisionDifferenceX, camera.width, camera.height)
@@ -390,14 +405,14 @@ black = Color("black", [ 0, 0, 0 ],     [ 50, 255, 110 ],  None,           None,
 
 # Sensor
 distanceSensorFront = DistanceSensor(27, 18)
-distanceSensorSide  = DistanceSensor(20, 21)
+distanceSensorSide  = DistanceSensor(23, 24)
 
 # motor
-motor = Motor('A')
-steering = steering('B')
-POS_LEFT = -70
+motor = Motor('C')
+steering = steering('D')
+POS_LEFT = -80
 POS_MIDDLE = 0
-POS_RIGHT = 70
+POS_RIGHT = 80
 
 def Initialize():
     print("Initialize")
@@ -416,23 +431,22 @@ def Main():
         camera.Update()
         red.Update(camera)
         green.Update(camera)
-
         # Avoid
         if steering.moveTime == 0:
             if steering.poleFlag:
+                blue.Update(camera)
                 steering.blueFlag = True if blue.CanSeeColor() else steering.blueFlag
-                    
+            
             steering.Avoid()
             if steering.avoidedColor is None:
                 # Side wall
                 distanceSide = distanceSensorSide.GetDistance()
-                print("distanceSide", distanceSide)
                 black.Update(camera)
                 wallSlope = black.GetSlope()
                 steering.MoveFromDistance(motor, wallSlope)
-
+                
         # Back
-        elif steering.moveTime >= 0.5:                
+        elif steering.moveTime >= 0.5:
             blue.Update(camera)
             if steering.poleFlag:
                 steering.blueFlag = True if blue.CanSeeColor() else steering.blueFlag
