@@ -43,12 +43,16 @@ ___
 
 ## ハードウェア
 
-| デバイス |  | 用途 | デバイス |  | 用途 |
-| :--: | :--:| :--: | :--: | :--: | :--: |
-| Raspberry Pi 4B | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/raspberrypi4b-removebg-preview.png" width="100px"> | プログラムの実行およびその処理 | BuildHat | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/buildhat-removebg-preview.png" width="100px">| LEGOのモーターと接続し、Raspberry Piで制御 |
-| Pi Camera V2 | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/Pi_camera_V2-removebg-preview.png" width="100px"> | 障害物認識、壁検知 | HC-SR04 | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/HC-SR04-removebg-preview.png" width="100px"> | 超音波センサーは壁との距離を計測 前面:衝突を回避 側面:時計回り・半時計回りの判別 |
-| Large Angular Motor |　<img src="https://github.com/washiwashiwashi/assignment/blob/images/img/l_motor.png" width="100px"> | 駆動 | Medium Angular Motor | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/m_motor.png" width="100px"> | 操舵 |
-| 18650(3.6V, 2600mAh) | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/18650-removebg-preview.png" width="100px"> | 電源供給 | Switch | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/switch-removebg-preview.png" width="100px"> | ロボットの起動 |
+| デバイス |  | 用途 |
+| :--: | :--:| :--: |
+| Raspberry Pi 4B | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/raspberrypi4b-removebg-preview.png" width="100px"> | プログラムの実行およびその処理 |
+| BuildHat | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/buildhat-removebg-preview.png" width="100px">| LEGOのモーターと接続し、Raspberry Piで制御 |
+| Pi Camera V2 | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/Pi_camera_V2-removebg-preview.png" width="100px"> | 障害物認識、壁検知 |
+| HC-SR04 | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/HC-SR04-removebg-preview.png" width="100px"> | 超音波センサーは壁との距離を計測 前面:衝突を回避 側面:時計回り・半時計回りの判別 |
+| Large Angular Motor |　<img src="https://github.com/washiwashiwashi/assignment/blob/images/img/l_motor.png" width="100px"> | 駆動 |
+| Medium Angular Motor | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/m_motor.png" width="100px"> | 操舵 |
+| 18650(3.6V, 2600mAh) | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/18650-removebg-preview.png" width="100px"> | 電源供給 |
+| Switch | <img src="https://github.com/washiwashiwashi/assignment/blob/images/img/remove%20background/switch-removebg-preview.png" width="100px"> | ロボットの起動 |
 
 ### ロボットの写真
 
