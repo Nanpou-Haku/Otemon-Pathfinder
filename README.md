@@ -19,9 +19,8 @@ ___
   * [プログラミング言語](#%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0%E8%A8%80%E8%AA%9E)
   * [アルゴリズム](#%E3%82%A2%E3%83%AB%E3%82%B4%E3%83%AA%E3%82%BA%E3%83%A0)
     * [前提](#%E5%89%8D%E6%8F%90%0D%0A)
-    * [Open Challenge](#Open+Challenge%0D%0A)
-    * [Obstacle Challenge](#Obstacle+Challenge%0D%0A)
-    * [画像認識](#%E7%94%BB%E5%83%8F%E8%AA%8D%E8%AD%98)
+    * [Open Challenge](#Open+Challenge)
+    * [Obstacle Challenge](#Obstacle+Challenge)
 
 ## 自己紹介
 
@@ -127,6 +126,22 @@ Open Challenge
 
 * ### Obstacle Challenge
 
-Obstacle Challenge
+Obstacle Challengeは、障害物を避けながら、3周をするミッションです。このミッションの達成方法として以下のアルゴリズムを考えました。
 
-* ### 画像認識
+1. 赤色と緑色のしきい値の最小値と最大値の範囲を定義し、マスク処理(二値化)をしたあと、そのデータにオープニング処理(ノイズ除去、特徴抽出)を施す。
+
+2. オープニング処理を施した画像の輪郭から赤色と緑色の最大面積とその面積の重心を算出する。
+
+![detect](https://github.com/washiwashiwashi/assignment/blob/images/img/detect.png)
+
+![content](https://github.com/washiwashiwashi/assignment/blob/images/img/content.jpg)
+
+3. その最大面積を評価し、赤と緑、どちらの面積の方が大きいか、その面積は十分に大きいかという条件を満たすか判定する。(算出された面積が大きければ、大きいほどロボットに近いところにあるといえる)
+
+4. ロボットの目の前にオブジェクトがある時(面積がある一定の値以上の条件)オブジェクトの色に応じて、ステアリングを操作し、回避を行う。
+
+5. ここで、三分割されたマスク画像について、2.で算出された重心が赤なら左側の領域、緑なら右側の領域に入った時、オブジェクトは回避できたと判断する。
+
+6. 4.、5.の間にかかった時間（回避に要した時間)を算出しておき、それを元に今度は逆向きにステアリングを操作し、ロボットを元の位置に戻す。
+
+7. 1.~6.の動作を3周するまで繰り返す。
