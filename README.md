@@ -19,8 +19,8 @@ ___
   * [プログラミング言語](#%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0%E8%A8%80%E8%AA%9E)
   * [アルゴリズム](#%E3%82%A2%E3%83%AB%E3%82%B4%E3%83%AA%E3%82%BA%E3%83%A0)
     * [前提](#%E5%89%8D%E6%8F%90%0D%0A)
-    * [Open Challenge](#Open Challenge)
-    * [Obstacle Challenge](#Obstacle Challenge)
+    * [Open Challenge](#OpenChallenge)
+    * [Obstacle Challenge](#ObstacleChallenge)
 
 ## 自己紹介
 
@@ -120,7 +120,7 @@ ___
 
 この表から分かるように、高解像度の場合、データ量が多く、リアルタイムで処理する際に処理に負荷がかかります。Future Engineersでは、3分以内に3周する速度とオブジェクトの認識の精度が求められるため、高解像度であると、処理能力が追いつかず、FPS(フレームレート)が下がり、画像データの更新が遅くなります。Open Challengeでは障害物を避ける必要がなく、壁のみの画像処理と超音波によるP制御より、解像度は640×480とし、Obstacle Challengeでは障害物と壁の画像処理が必要であるため、320×240としています。
 
-* ### Open　Challenge
+* ### OpenChallenge
 
 Open Challengeは、トラックに障害物がなく、中央の壁が変化することにより、セクションにより壁と壁の幅が変化するため、適応しながら、3周をするミッションです。このミッションの達成方法として、以下のアルゴリズムを考えました。
 
@@ -136,7 +136,7 @@ Open Challengeは、トラックに障害物がなく、中央の壁が変化す
 
 6. 1.~5.の動作を3周するまで繰り返す。
 
-* ### Obstacle　Challenge
+* ### ObstacleChallenge
 
 Obstacle Challengeは、障害物を避けながら、3周をするミッションです。このミッションの達成方法として以下のアルゴリズムを考えました。
 
