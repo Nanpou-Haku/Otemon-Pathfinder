@@ -398,19 +398,19 @@ class steering:
         motor.start(30)
         if self.blueFlag == False:
             print("distanceSide =", distanceSide)
-            if distanceSide < 44:
-                self.DistanceChangePosition(-20)
+            if distanceSide < 29:
+                self.DistanceChangePosition(-70)
         
-            elif 44 <= distanceSide <= 70:
-                self.DistanceChangePosition(20)
+            elif 29 <= distanceSide <= 43:
+                self.DistanceChangePosition(0)
+            
+            elif 43 < distanceSide <= 70:
+                self.DistanceChangePosition(70)
             
             elif 70 < distanceSide:
                 self.DistanceChangePosition(0)
             
-            else:
-                self.DistanceChangePosition(0)
-            
-            time.sleep(0.2)
+        time.sleep(0.2)
 
 # Parameter
 MODE_DEBUG = True
