@@ -77,19 +77,19 @@ class steering:
         distanceSide = distanceSensorSide.GetDistance()
         
         print("distanceSide =", distanceSide)
-        if distanceSide <= 29:
-            self.DistanceChangePosition(-30)
+        if distanceSide < 29:
+            self.DistanceChangePosition(-70)
         
-        elif 47 <= distanceSide <= 70:
-            self.DistanceChangePosition(30)
+        elif 29 <= distanceSide <= 43:
+            self.DistanceChangePosition(0)
+            
+        elif 43 < distanceSide <= 70:
+            self.DistanceChangePosition(70)
             
         elif 70 < distanceSide:
             self.DistanceChangePosition(0)
             
-        else:
-            self.DistanceChangePosition(0)
-            
-        time.sleep(0.1)
+        time.sleep(0.2)
 
 # Sensor
 distanceSensorFront = DistanceSensor(27, 18)
