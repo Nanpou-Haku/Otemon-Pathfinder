@@ -267,10 +267,9 @@ class steering:
             if self.__nowPosition == POS_MIDDLE and self.startTime != 0:
                 endTime = time.perf_counter()
                 self.moveTime = endTime - self.startTime
-                print("end")
+                
             else:
                 self.startTime = time.perf_counter()
-                print("start")
                 
     def MoveFromWallSlope(self, motor, wallSlope):
         if self.__SLOPE_ADMISSIBLE_VALUE <= wallSlope:
@@ -344,7 +343,6 @@ class steering:
 
     def Avoid(self):        
         if steering.poleFlag and steering.blueFlag:
-            print("ignore")
             return
 
         # Has green
@@ -382,7 +380,7 @@ class steering:
     def Back(self, goPosition):
         self.ChangePosition(POS_MIDDLE)
         self.poleFlag = True
-        time.sleep(2)
+        time.sleep(2.5)
         self.ChangePosition(goPosition)
         time.sleep(self.moveTime * 0.5)
         self.ChangePosition(POS_MIDDLE)
@@ -424,12 +422,13 @@ def ThreadUpdateCamera(queue):
         blue.Update(camera)
         if MODE_DEBUG:
             camera.Render()
-            blue.Render()
+            if steering.poleFlag:
+                blue.Render()
         
         if blue.area == None:
             blue.area = 0
             
-        elif steering.poleFlag and blue.area >= 2000 and blue.originY >= 130:
+        elif steering.poleFlag and blue.area >= 2000 and blue.originY >= 120:
             steering.blueFlag = True
         
 def Initialize():
